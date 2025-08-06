@@ -41,12 +41,16 @@ def login():
     driver.implicitly_wait(4)
 
     while True:
-        
+
         # 보안문자 불러와서 캡쳐 (추출하는 방식은 보안문자가 매번 바뀌어서 캡쳐로 진행, 파일로 만들어졌기 때문에 파일 열어서 확인 가능)
         pull_captcha = driver.find_element(By.ID, "captchaImg")
-        chaptcah_img = pull_captcha.screenshot_as_png
+        driver.execute_script("arguments[0].scrollIntoView();", pull_captcha)
+        time.sleep(1)
+        captcha_img = pull_captcha.screenshot_as_png
         with open("Captcha/Captcha.png", "wb") as f:
-            f.write(chaptcah_img)
+            f.write(captcha_img)
+        
+        time.sleep(1)
         
         # 아이디와 비밀번호 입력. 비밀번호는 보이지 않게 입력 가능.
         enter_id = input("아이디 입력: ")
@@ -72,14 +76,26 @@ def login():
             if enter_captcha is not False and enter_password is not False and enter_id is not False:
                 login_button = driver.find_element(By.ID, "login-btn")
                 ActionChains(driver).click(login_button).perform()
-                if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
-                    if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
-                        password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
-                        ActionChains(driver).click(password_change_info_close).perform()
-                    time.sleep(1)
-                    if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
-                        layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
-                        ActionChains(driver).click(layer_instt_search_close).perform()
+                # if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
+                #     if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
+                #         password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+                #         ActionChains(driver).click(password_change_info_close).perform()
+                #     time.sleep(1)
+                #     if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+                #         layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+                #         ActionChains(driver).click(layer_instt_search_close).perform()
+                try:
+                    password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+                    ActionChains(driver).click(password_change_info_close).perform()
+                except selenium.common.exceptions.NoSuchElementException:
+                    pass # 모달이 없으면 그냥 넘어감
+                time.sleep(1)
+                    # if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+                try:
+                    layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+                    ActionChains(driver).click(layer_instt_search_close).perform()
+                except selenium.common.exceptions.NoSuchElementException:
+                    pass # 모달이 없으면 그냥 넘어감
                 # driver.get_screenshot_as_file("Image/login_capture.png")
                 time.sleep(1)
                 # if os.listdir("Image") is not None:

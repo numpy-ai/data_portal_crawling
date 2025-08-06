@@ -13,6 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.keys import Keys
 import login
 
 def is_element_present(driver, xpath): 
@@ -134,7 +135,7 @@ def search():
     
     chrome_options = Options()
     chrome_options.add_experimental_option("prefs", 
-                                           {"download.default_directory": r'C:\Programing\KNU\Internship_2025\Data', # 경로 수정 필요
+                                           {"download.default_directory": r'I:\Programming\data_portal_crawling\Data', # 경로 수정 필요
                                             "download.prompt_for_download": False,
                                             "download.directory_upgrade": True,
                                             "safebrowsing.enabled": True})
@@ -143,6 +144,8 @@ def search():
     chrome_options.add_argument('disable-dev-shm-usage')
     chrome_options.add_argument('--disable-popup-blocking')
     # chrome_options.add_argument("headless")
+    user_agent=f"Mozilla/5.0 (Linux; Android 9; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.83 Mobile Safari/537.36"
+    chrome_options.add_argument(f"--user-agent={user_agent}")
     
     # driver로 공공데이터포털 사이트에 요청 보내기
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
@@ -150,18 +153,33 @@ def search():
     for cookie in session.cookies:
         driver.add_cookie({'name': cookie.name, 'value': cookie.value, 'path': cookie.path})
     driver.refresh()
+    driver.maximize_window()
     time.sleep(1.5)
-    if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
-        if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
-            password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
-            ActionChains(driver).click(password_change_info_close).perform()
-        time.sleep(1)
-        if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
-            layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
-            ActionChains(driver).click(layer_instt_search_close).perform()
+    # 비밀번호 변경 창 뜰 시에 작동
+    # if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
+        # if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
+    try:
+        password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+        ActionChains(driver).click(password_change_info_close).perform()
+    except selenium.common.exceptions.NoSuchElementException:
+        pass # 모달이 없으면 그냥 넘어감
+    time.sleep(1)
+        # if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+    try:
+        layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+        ActionChains(driver).click(layer_instt_search_close).perform()
+    except selenium.common.exceptions.NoSuchElementException:
+        pass # 모달이 없으면 그냥 넘어감
     driver.maximize_window()
     driver.implicitly_wait(3)
     while True:
+
+        # 팝업 뜰 시에 작동
+        # try:
+        #     layer_popup = driver.find_element(By.XPATH, '//*[@id="layer_popup_info_0"]')
+        #     ActionChains(driver).click(layer_popup.find_element(By.XPATH, '//*[@id="layer_popup_info_0"]/div/a')).perform()
+        # except selenium.common.exceptions.NoSuchElementException:
+        #     pass # 모달이 없으면 그냥 넘어감
         
         enter_keyword = input("어떤 공공데이터를 찾으시나요? (Done 입력 시에 종료됩니다.): ")
         if enter_keyword:
@@ -169,8 +187,8 @@ def search():
                 break
             input_keyword = driver.find_element(By.XPATH, '//*[@id="keyword"]')
             ActionChains(driver).send_keys_to_element(input_keyword, enter_keyword).perform()
-            search_btn = driver.find_element(By.XPATH, '//*[@id="searchFrm"]/div[1]/button')
-            ActionChains(driver).click(search_btn).perform()
+            driver.find_element(By.XPATH, '//*[@id="searchFrm"]/div[1]/button').send_keys(Keys.ENTER)
+            # ActionChains(driver).click(search_btn).send_keys(Keys.ENTER).perform()
             data_cnt = driver.find_element(By.XPATH, '//*[@id="mainTotalCnt"]').get_attribute('innerText')
             file_data_ctn = driver.find_element(By.XPATH, '//*[@id="fileCnt2"]').get_attribute('innerText')
             if ',' in file_data_ctn:
@@ -198,6 +216,7 @@ def search():
                             current_page = int(page_bar.find_element(By.XPATH, '//*[@id="fileDataList"]/nav/strong').get_attribute('innerText'))
                             dataList = driver.find_elements(By.CLASS_NAME, 'title')
                             newDataList = []
+                            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//*[@id="fileDataList"]/nav')))
                             for data in dataList:
                                 if data.tag_name == 'span':
                                     newDataList.append(data.get_attribute("innerText"))
@@ -223,8 +242,8 @@ def search():
                                     except Exception as e:
                                         print(str(e))
                                         continue
-                                    if is_element_present(driver, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(enter_number + 1)}]/div[2]/a'):
-                                        download_btn = data_select.find_element(By.XPATH, '//*[@class="button h32 white"]')
+                                    if is_element_present(driver, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(enter_number) + 1}]/div[2]/a'):
+                                        download_btn = data_select.find_element(By.XPATH, './/a[contains(@class, "button h32 white")]')
                                         if '바로가기' not in download_btn.text:
                                             ActionChains(driver).click(download_btn).perform()
                                         else:
@@ -261,34 +280,46 @@ def search():
                                         print(f"{data_name} 데이터는 CSV 파일이 아닙니다.")
                                 else:
                                     for index, _ in enumerate(newDataList):
-                                        if 'CSV' in driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index + 1)}]/dl/dt/a').find_element(By.CLASS_NAME, 'tagset').text:
+                                        if 'CSV' in driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index) + 1}]/dl/dt/a').find_element(By.CLASS_NAME, 'tagset').text:
                                             if is_element_present(driver, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index + 1)}]/div[2]/a'):
-                                                download_btn = driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index + 1)}]/div[2]/a')
+                                                download_btn = driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index) + 1}]/div[2]/a')
                                                 if '바로가기' not in download_btn.text:
                                                         ActionChains(driver).click(download_btn).perform()
                                                 else:
-                                                    data_name = driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index + 1)}]/dl/dt/a').find_element(By.CLASS_NAME, 'title').text
+                                                    data_name = driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index) + 1}]/dl/dt/a').find_element(By.CLASS_NAME, 'title').text
                                                     print(f'{data_name} 데이터는 외부 사이트에서 다운할 수 있습니다.')
                                             else:
-                                                driver.get(driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index + 1)}]/dl/dt/a').get_attribute('href'))
+                                                driver.get(driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index) + 1}]/dl/dt/a').get_attribute('href'))
                                                 
                                                 if is_element_present(driver, '//*[@id="contents"]/div[2]/div[1]/div[3]/div/a'):
                                                     data_download(driver, '//*[@id="contents"]/div[2]/div[1]/div[3]/div/a')
                                                 if is_element_present(driver, '//*[@id="tab-layer-file"]/div[2]/div[2]/a') :
                                                     data_download(driver, '//*[@id="tab-layer-file"]/div[2]/div[2]/a')
                                         else:
-                                            data_name = driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index + 1)}]/dl/dt/a').find_element(By.CLASS_NAME, 'title').text
+                                            data_name = driver.find_element(By.XPATH, f'//*[@id="fileDataList"]/div[2]/ul/li[{int(index) + 1}]/dl/dt/a').find_element(By.CLASS_NAME, 'title').text
                                             print(f"{data_name} 데이터는 CSV 파일이 아닙니다.")
                             elif enter_number == '완료':
                                 driver.get(url)
-                                if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
-                                    if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
-                                        password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
-                                        ActionChains(driver).click(password_change_info_close).perform()
-                                    time.sleep(1)
-                                    if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
-                                        layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
-                                        ActionChains(driver).click(layer_instt_search_close).perform()
+                                # if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
+                                #     if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
+                                #         password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+                                #         ActionChains(driver).click(password_change_info_close).perform()
+                                #     time.sleep(1)
+                                #     if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+                                #         layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+                                #         ActionChains(driver).click(layer_instt_search_close).perform()
+                                try:
+                                    password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+                                    ActionChains(driver).click(password_change_info_close).perform()
+                                except selenium.common.exceptions.NoSuchElementException:
+                                    pass # 모달이 없으면 그냥 넘어감
+                                time.sleep(1)
+                                    # if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+                                try:
+                                    layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+                                    ActionChains(driver).click(layer_instt_search_close).perform()
+                                except selenium.common.exceptions.NoSuchElementException:
+                                    pass # 모달이 없으면 그냥 넘어감
                                 break
                             else:
                                 try: 
@@ -497,14 +528,26 @@ def search():
                                             continue
                             elif enter_number == '완료':
                                 driver.get(url)
-                                if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
-                                    if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
-                                        password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
-                                        ActionChains(driver).click(password_change_info_close).perform()
-                                    time.sleep(1)
-                                    if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
-                                        layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
-                                        ActionChains(driver).click(layer_instt_search_close).perform()
+                                # if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
+                                #     if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
+                                #         password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+                                #         ActionChains(driver).click(password_change_info_close).perform()
+                                #     time.sleep(1)
+                                #     if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+                                #         layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+                                #         ActionChains(driver).click(layer_instt_search_close).perform()
+                                try:
+                                    password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+                                    ActionChains(driver).click(password_change_info_close).perform()
+                                except selenium.common.exceptions.NoSuchElementException:
+                                    pass # 모달이 없으면 그냥 넘어감
+                                time.sleep(1)
+                                    # if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+                                try:
+                                    layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+                                    ActionChains(driver).click(layer_instt_search_close).perform()
+                                except selenium.common.exceptions.NoSuchElementException:
+                                    pass # 모달이 없으면 그냥 넘어감
                                 break
                             elif enter_number == '활용신청 현황':
                                 for index, data in enumerate(api_name_list):
