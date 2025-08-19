@@ -14,6 +14,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
+import os
 import login
 
 def is_element_present(driver, xpath): 
@@ -133,9 +134,12 @@ def search():
     session = login.login()
     url = 'https://data.go.kr'
     
+    base_dir = os.getcwd()
+    data_dir = os.path.join(base_dir, "Data")
+
     chrome_options = Options()
     chrome_options.add_experimental_option("prefs", 
-                                           {"download.default_directory": r'I:\Programming\data_portal_crawling\Data', # 경로 수정 필요
+                                           {"download.default_directory": data_dir, # 경로 수정 필요
                                             "download.prompt_for_download": False,
                                             "download.directory_upgrade": True,
                                             "safebrowsing.enabled": True})
@@ -213,7 +217,7 @@ def search():
                     while True:
                         try:    
                             page_bar = driver.find_element(By.XPATH, '//*[@id="fileDataList"]/nav') 
-                            current_page = int(page_bar.find_element(By.XPATH, '//*[@id="fileDataList"]/nav/strong').get_attribute('innerText'))
+                            current_page = page_bar.find_element(By.XPATH, '//*[@id="fileDataList"]/nav/strong').get_attribute('innerText')[0]
                             dataList = driver.find_elements(By.CLASS_NAME, 'title')
                             newDataList = []
                             WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//*[@id="fileDataList"]/nav')))
@@ -374,7 +378,7 @@ def search():
                             api_name_list = check_api(driver)
                             time.sleep(1)
                             page_bar = driver.find_element(By.XPATH, '//*[@id="apiDataList"]/nav') 
-                            current_page = int(page_bar.find_element(By.XPATH, '//*[@id="apiDataList"]/nav/strong').get_attribute('innerText'))
+                            current_page = page_bar.find_element(By.XPATH, '//*[@id="apiDataList"]/nav/strong').get_attribute('innerText')[0]
                             dataList = driver.find_elements(By.CLASS_NAME, 'title')
                             newDataList = []
                             for data in dataList:
