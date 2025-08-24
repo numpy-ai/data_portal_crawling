@@ -15,7 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
 import os
-import login
+import getpass
 
 def is_element_present(driver, xpath): 
     try: 
@@ -113,10 +113,10 @@ def check_api(driver):
     #     driver.switch_to.window(driver.window_handles[-1])
     try:
         application_api_list = driver.find_element(By.XPATH, '//*[@id="contents"]/div/div[3]/ul')
-        application_apis = application_api_list.find_elements(By.TAG_NAME, 'li')
+        # application_apis = application_api_list.find_elements(By.TAG_NAME, 'li')
         api_name_list = []
-        for i in range(len(application_apis)):
-            api_name_list.append(application_apis[i].find_element(By.CLASS_NAME, 'title').text)
+        for api in application_api_list:
+            api_name_list.append(api.find_elements(By.TAG_NAME, 'li').find_element(By.CLASS_NAME, 'title').text)
     except Exception as e:
         print(str(e))
     # for index, name in enumerate(api_name_list):
@@ -130,9 +130,12 @@ def get_api_Data(driver):
     
 
 def search():
-    
-    session = login.login()
-    url = 'https://data.go.kr'
+    # Capcha 보관용 폴더, Capcha 이미지 파일은 로그인 성공 후 삭제된다.
+    if not os.path.isdir("Captcha"):
+        os.mkdir("Captcha")
+    # 데이터가 다운로드 되는 폴더
+    if not os.path.isdir("Data"):
+        os.mkdir("Data")
     
     base_dir = os.getcwd()
     data_dir = os.path.join(base_dir, "Data")
@@ -150,13 +153,92 @@ def search():
     # chrome_options.add_argument("headless")
     user_agent=f"Mozilla/5.0 (Linux; Android 9; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.83 Mobile Safari/537.36"
     chrome_options.add_argument(f"--user-agent={user_agent}")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+
+    url = 'https://auth.data.go.kr/sso/common-login?client_id=hagwng3yzgpdmbpr2rxn&redirect_url=https://data.go.kr/sso/profile.do'
     
     # driver로 공공데이터포털 사이트에 요청 보내기
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     driver.get(url)
-    for cookie in session.cookies:
-        driver.add_cookie({'name': cookie.name, 'value': cookie.value, 'path': cookie.path})
-    driver.refresh()
+    driver.maximize_window()
+
+    while True:
+
+        # 보안문자 불러와서 캡쳐 (추출하는 방식은 보안문자가 매번 바뀌어서 캡쳐로 진행, 파일로 만들어졌기 때문에 파일 열어서 확인 가능)
+        pull_captcha = driver.find_element(By.ID, "captchaImg")
+        driver.execute_script("arguments[0].scrollIntoView();", pull_captcha)
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "captchaImg")))
+        captcha_img = pull_captcha.screenshot_as_png
+        with open("Captcha/Captcha.png", "wb") as f:
+            f.write(captcha_img)
+        
+        time.sleep(1)
+        
+        # 아이디와 비밀번호 입력. 비밀번호는 보이지 않게 입력 가능.
+        enter_id = input("아이디 입력: ")
+        enter_password = getpass.getpass("비밀번호 입력: ")
+
+        # 아이디를 아이디 입력 칸에 넣어주는 코드
+        input_id = driver.find_element(By.ID, "inputUsername")
+        ActionChains(driver).send_keys_to_element(input_id, enter_id).perform()
+
+        # 비밀번호를 비밀번호 입력 칸에 넣어주는 코드
+        input_password = driver.find_element(By.ID, "inputPassword")
+        ActionChains(driver).send_keys_to_element(input_password, enter_password).perform()    
+        
+        # 보안문자 입력. 열려서 보이는 보안문자를 입력.
+        enter_captcha = input("보안문자 입력: ")
+
+        # 보안문자를 보안문자 입력 칸에 넣어주는 코드.
+        input_captcha = driver.find_element(By.ID, "captcha")
+        ActionChains(driver).send_keys_to_element(input_captcha, enter_captcha).perform()
+
+        # 만약 보안문자, 비밀번호, 아이디를 모두 입력했다면 작동하는 코드. 입력하지 않으면 작동 안 하며 else문으로 빠져 print문 출력.
+        try:
+            if enter_captcha is not False and enter_password is not False and enter_id is not False:
+                login_button = driver.find_element(By.ID, "login-btn")
+                ActionChains(driver).click(login_button).perform()
+                # if is_element_present(driver, '//*[@id="password-change-modal"]') or is_element_present(driver, '//*[@id="layer_instt_search"]'):
+                #     if driver.find_element(By.XPATH, '//*[@id="password-change-modal"]'):    
+                #         password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+                #         ActionChains(driver).click(password_change_info_close).perform()
+                #     time.sleep(1)
+                #     if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+                #         layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+                #         ActionChains(driver).click(layer_instt_search_close).perform()
+                try:
+                    password_change_info_close = driver.find_element(By.XPATH, '//*[@id="password-change-modal"]/a')
+                    ActionChains(driver).click(password_change_info_close).perform()
+                except selenium.common.exceptions.NoSuchElementException:
+                    pass # 모달이 없으면 그냥 넘어감
+                time.sleep(1)
+                    # if driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]'):
+                try:
+                    layer_instt_search_close = driver.find_element(By.XPATH, '//*[@id="layer_instt_search"]/a')
+                    ActionChains(driver).click(layer_instt_search_close).perform()
+                except selenium.common.exceptions.NoSuchElementException:
+                    pass # 모달이 없으면 그냥 넘어감
+                # driver.get_screenshot_as_file("Image/login_capture.png")
+                time.sleep(1)
+                # if os.listdir("Image") is not None:
+                #     os.rename("Image/login_capture.png", 
+                #             f'Image/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_login_capture.png')
+                __selenium_cookies = driver.get_cookies()
+                break
+            else:
+                print("모든 내용을 입력해주세요.")
+        except selenium.common.exceptions.UnexpectedAlertPresentException as e:
+            print(str(e))
+            driver.refresh()
+        break
+
+    url = 'https://data.go.kr'
+    
+    
+    # driver로 공공데이터포털 사이트에 요청 보내기
+    driver.get(url)
+    # for cookie in session.cookies:
+    #     driver.add_cookie({'name': cookie.name, 'value': cookie.value, 'path': cookie.path})
+    # driver.refresh()
     driver.maximize_window()
     time.sleep(1.5)
     # 비밀번호 변경 창 뜰 시에 작동
@@ -175,7 +257,6 @@ def search():
     except selenium.common.exceptions.NoSuchElementException:
         pass # 모달이 없으면 그냥 넘어감
     driver.maximize_window()
-    driver.implicitly_wait(3)
     while True:
 
         # 팝업 뜰 시에 작동
